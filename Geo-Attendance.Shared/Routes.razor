@@ -1,0 +1,23 @@
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(MainLayout).Assembly">
+        <Found Context="routeData">
+            <!-- AuthorizeRouteView replaces standard RouteView to enable security -->
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <div style="padding: 40px; text-align: center; color: #F8FAFC; font-family: 'Inter', sans-serif; background-color: #0F172A; height: 100vh;">
+                        <h2>Access Denied</h2>
+                        <p style="color: #94A3B8;">You do not have permission to view this portal.</p>
+                        <a href="/" style="color: #38BDF8; text-decoration: none; font-weight: bold;">Return to Login</a>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert" style="color: #F8FAFC; padding: 20px;">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

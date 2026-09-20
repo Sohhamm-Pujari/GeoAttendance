@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Geo-Attendance.Shared/Geo-Attendance.Shared.csproj" />
+  <Project Path="Geo-Attendance.Web/Geo-Attendance.Web.csproj" />
+  <Project Path="Geo-Attendance/Geo-Attendance.csproj" />
+</Solution>

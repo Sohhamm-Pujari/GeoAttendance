@@ -1,0 +1,502 @@
+﻿@page "/studentdashboard"
+@attribute [Authorize(Roles = "Student")]
+@using Geo_Attendance.Shared
+@using Geo_Attendance.Shared.Data
+@using Geo_Attendance.Shared.Services
+@inject NavigationManager NavManager
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@inject ILocationService MyLocService
+
+<style>
+    .glass-card {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .punch-btn {
+        width: 100%;
+        padding: 20px;
+        font-size: 18px;
+        font-weight: 700;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    /* Academic Calendar Styles */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+        margin-top: 15px;
+    }
+
+    .cal-header {
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        padding-bottom: 5px;
+    }
+
+    .cal-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        background: rgba(255,255,255,0.05);
+    }
+
+    .cal-present {
+        background: rgba(52, 211, 153, 0.2);
+        color: var(--success);
+        border: 1px solid rgba(52, 211, 153, 0.4);
+    }
+
+    .cal-absent {
+        background: rgba(248, 113, 113, 0.2);
+        color: var(--danger);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+    }
+
+    .cal-holiday {
+        background: rgba(56, 189, 248, 0.15);
+        color: var(--primary);
+        border: 1px dashed var(--primary);
+    }
+
+    .cal-weekend {
+        opacity: 0.4;
+    }
+
+    .cal-today {
+        border: 2px solid #fff !important;
+    }
+</style>
+
+<div class="app-background theme-student" style="padding: 30px; overflow-y: auto;">
+    <div style="max-width: 1000px; margin: 0 auto;">
+
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div>
+                <h2 style="margin: 0; font-size: 28px; font-weight: 700;">Student Portal</h2>
+                <p style="margin: 5px 0 0 0; color: var(--text-secondary);">@(GlobalState.CurrentUser?.Name ?? "Student") | @(GlobalState.CurrentUser?.AssignedClass ?? "Unassigned")</p>
+            </div>
+            <button class="btn btn-danger" @onclick="SignOut">Sign Out</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+
+            <!-- LEFT COLUMN: GPS PUNCH IN & CALENDAR -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                <!-- GPS Gateway (REDESIGNED FOR DEMO FLOW) -->
+                <div class="glass-card">
+                    <h3 style="margin: 0 0 15px 0; font-size: 18px;">GPS Terminal</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 5px;">📍 Status: @statusMessage</p>
+
+                    @if (todayRecord == null)
+                    {
+                        <button class="punch-btn" style="background: var(--primary); color: #000;" @onclick="PunchIn" disabled="@isProcessing">
+                            @(isProcessing ? "Authenticating Location..." : "Punch In via GPS")
+                        </button>
+                    }
+                    else if (todayRecord.OutTime == null)
+                    {
+                        <div style="background: rgba(52, 211, 153, 0.1); color: var(--success); padding: 15px; border-radius: var(--radius-md); text-align: center; border: 1px solid rgba(52, 211, 153, 0.3); margin-bottom: 15px;">
+                            Verified On Campus at @todayRecord.Timestamp.ToString("hh:mm tt")
+                        </div>
+                        <button class="punch-btn" style="background: rgba(248, 113, 113, 0.15); color: var(--danger); border: 1px solid rgba(248, 113, 113, 0.3);" @onclick="PunchOut" disabled="@isProcessing">
+                            @(isProcessing ? "Verifying..." : "Punch Out / Leave Campus")
+                        </button>
+                    }
+                    else
+                    {
+                        <div style="background: rgba(52, 211, 153, 0.1); color: var(--success); padding: 15px; border-radius: var(--radius-md); border: 1px solid rgba(52, 211, 153, 0.3); margin-top: 15px;">
+                            <div style="font-weight: 700; text-align: center; margin-bottom: 10px;">Attendance Successfully Logged</div>
+                            <div style="display: flex; justify-content: space-between; font-size: 14px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px;">
+                                <span><strong>In:</strong> @todayRecord.Timestamp.ToString("hh:mm tt")</span>
+                                <span><strong>Out:</strong> @todayRecord.OutTime.Value.ToString("hh:mm tt")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Academic Visual Calendar -->
+                <div class="glass-card">
+                    <h3 style="margin: 0 0 10px 0; font-size: 18px;">Attendance Log: @DateTime.Today.ToString("MMMM yyyy")</h3>
+
+                    <div class="calendar-grid">
+                        <div class="cal-header">Sun</div><div class="cal-header">Mon</div><div class="cal-header">Tue</div>
+                        <div class="cal-header">Wed</div><div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div>
+
+                        @for (int i = 0; i < emptyStartDays; i++)
+                        {
+                            <div></div>
+                        }
+
+                        @for (int day = 1; day <= daysInMonth; day++)
+                        {
+                            DateTime iterDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, day);
+                            string cssClass = "cal-day ";
+
+                            if (iterDate.DayOfWeek == DayOfWeek.Saturday || iterDate.DayOfWeek == DayOfWeek.Sunday) cssClass += "cal-weekend ";
+                            else if (holidayDates.Contains(iterDate)) cssClass += "cal-holiday ";
+                            else if (iterDate <= DateTime.Today)
+                            {
+                                bool present = myMonthlyRecords.Any(r => r.Timestamp.Date == iterDate);
+                                cssClass += present ? "cal-present " : "cal-absent ";
+                            }
+
+                            if (iterDate == DateTime.Today) cssClass += "cal-today ";
+
+                            <div class="@cssClass">@day</div>
+                        }
+                    </div>
+
+                    <div style="display: flex; gap: 15px; margin-top: 15px; font-size: 11px; justify-content: center; color: var(--text-secondary);">
+                        <div style="display: flex; align-items: center; gap: 4px;"><div style="width:10px; height:10px; background:var(--success); border-radius:2px;"></div> Present</div>
+                        <div style="display: flex; align-items: center; gap: 4px;"><div style="width:10px; height:10px; background:var(--danger); border-radius:2px;"></div> Absent</div>
+                        <div style="display: flex; align-items: center; gap: 4px;"><div style="width:10px; height:10px; background:var(--primary); border-radius:2px;"></div> Holiday</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: 75% PREDICTOR ANALYTICS -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="glass-card" style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 18px;">Semester Progress</h3>
+                        <div class="badge" style="background: rgba(56, 189, 248, 0.2); color: var(--primary);">Target: 75%</div>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                        <div style="font-size: 58px; font-weight: 800; line-height: 1; color: @(currentAttendancePercentage >= 75 ? "var(--success)" : "var(--danger)");">
+                            @currentAttendancePercentage%
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-secondary); margin-top: 5px;">Current Academic Standing</div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); border-radius: var(--radius-md); padding: 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="font-size: 13px; color: var(--text-secondary);">Working Days Passed:</span>
+                            <span style="font-weight: 700;">@passedWorkingDays</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="font-size: 13px; color: var(--text-secondary);">Days Verified Present:</span>
+                            <span style="font-weight: 700; color: var(--success);">@totalPresentDays</span>
+                        </div>
+                        <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.1); margin: 15px 0;"></div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 13px; color: var(--text-secondary);">Total Semester Calendar Days:</span>
+                            <span style="font-weight: 700;">@totalSemesterWorkingDays</span>
+                        </div>
+                    </div>
+
+                    @if (sessionsNeededToPass > 0)
+                    {
+                        <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--warning); padding: 15px; border-radius: 4px;">
+                            <div style="font-size: 16px; font-weight: 700; color: var(--warning); margin-bottom: 5px;">@sessionsNeededToPass Days Required</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">You must attend exactly @sessionsNeededToPass more days out of the remaining @remainingWorkingDays working days this semester to successfully clear the 75% Mumbai University mandate.</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="background: rgba(52, 211, 153, 0.1); border-left: 4px solid var(--success); padding: 15px; border-radius: 4px;">
+                            <div style="font-size: 16px; font-weight: 700; color: var(--success); margin-bottom: 5px;">Criteria Satisfied</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">You have successfully crossed the 75% attendance threshold for the current semester.</div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- RESTORED & UPGRADED: CLASS COMMUNICATOR INBOX -->
+            <div class="glass-card" style="grid-column: 1 / -1;">
+                <h3 style="margin: 0 0 15px 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    Classroom Announcements
+                </h3>
+
+                @if (announcements.Any())
+                {
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        @foreach (var msg in announcements)
+                        {
+                            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid var(--primary);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <span style="font-weight: 700; font-size: 14px; color: var(--primary);">@msg.SenderName</span>
+
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <span style="font-size: 12px; color: var(--text-secondary);">@msg.Timestamp.ToString("MMM dd, hh:mm tt")</span>
+                                        <!-- DISMISS / CLEAR BUTTON -->
+                                        <button class="btn btn-danger" style="padding: 2px 8px; font-size: 11px; border-radius: 4px; background: transparent; border: 1px solid var(--danger); color: var(--danger); transition: 0.3s;" @onclick="() => DismissNotification(msg)">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style="font-size: 14px; color: var(--text-primary);">@msg.Message</div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div style="padding: 20px; text-align: center; color: var(--text-secondary); background: rgba(0,0,0,0.2); border-radius: 8px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px; opacity: 0.5;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        <div style="font-size: 14px;">No new announcements from your class teacher.</div>
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    AttendanceRecord? todayRecord;
+    string statusMessage = "Awaiting Action";
+    bool isProcessing = false;
+
+    // Academic Configuration
+    DateTime termStart;
+    DateTime termEnd;
+    List<DateTime> holidayDates = new List<DateTime>();
+
+    // Calendar Variables
+    int daysInMonth;
+    int emptyStartDays;
+    List<AttendanceRecord> myMonthlyRecords = new List<AttendanceRecord>();
+
+    // Communicator Variable
+    List<AppNotification> announcements = new List<AppNotification>();
+
+    // Analytics Predictor Variables
+    int totalSemesterWorkingDays = 0;
+    int passedWorkingDays = 0;
+    int remainingWorkingDays = 0;
+    int totalPresentDays = 0;
+    int currentAttendancePercentage = 0;
+    int sessionsNeededToPass = 0;
+
+    protected override void OnInitialized()
+    {
+        if (GlobalState.CurrentUser == null || GlobalState.CurrentUser.Role != "Student")
+        {
+            NavManager.NavigateTo("/");
+            return;
+        }
+
+        LoadAcademicData();
+        CalculateAnalytics();
+    }
+
+    string GetGroupName(string fullAssignment)
+    {
+        if (string.IsNullOrWhiteSpace(fullAssignment)) return "Unassigned";
+        if (fullAssignment.Contains("|")) return fullAssignment.Split('|')[0].Trim();
+        return fullAssignment.Trim();
+    }
+
+    void LoadAcademicData()
+    {
+        string myId = GlobalState.CurrentUser!.UniqueId;
+        string myClassGroup = GetGroupName(GlobalState.CurrentUser.AssignedClass);
+
+        termStart = AcademicConfig.StartDate;
+        termEnd = AcademicConfig.EndDate;
+        string holidayStr = AcademicConfig.Holidays;
+
+        holidayDates = holidayStr.Split(',')
+                    .Select(s => DateTime.TryParse(s.Trim(), out var d) ? d : DateTime.MinValue)
+                    .Where(d => d != DateTime.MinValue).ToList();
+
+        // Load specific database records
+        var allMyRecords = Db.AttendanceRecords.Where(r => r.StudentId == myId).ToList();
+
+        // Fix: Order by descending to ensure we grab the absolute latest record created for today
+        todayRecord = allMyRecords.Where(r => r.Timestamp.Date == DateTime.Today)
+                                  .OrderByDescending(r => r.Timestamp)
+                                  .FirstOrDefault();
+
+        myMonthlyRecords = allMyRecords
+                    .Where(r => r.Timestamp.Year == DateTime.Today.Year && r.Timestamp.Month == DateTime.Today.Month)
+                    .ToList();
+
+        totalPresentDays = allMyRecords.Count;
+
+        // LOAD CLASSROOM ANNOUNCEMENTS
+        announcements = Db.Notifications
+            .Where(n => n.TargetClass == myClassGroup || n.TargetClass == GlobalState.CurrentUser.AssignedClass)
+            .OrderByDescending(n => n.Timestamp)
+            .ToList();
+
+        // Calendar Grid Calculations
+        DateTime firstDayOfMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        daysInMonth = DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month);
+        emptyStartDays = (int)firstDayOfMonth.DayOfWeek;
+    }
+
+    void CalculateAnalytics()
+    {
+        totalSemesterWorkingDays = GetWorkingDays(termStart, termEnd);
+        passedWorkingDays = GetWorkingDays(termStart, DateTime.Today);
+        remainingWorkingDays = totalSemesterWorkingDays - passedWorkingDays;
+
+        if (passedWorkingDays > 0)
+        {
+            currentAttendancePercentage = (int)Math.Round(((double)totalPresentDays / passedWorkingDays) * 100);
+        }
+
+        int targetMinimumDays = (int)Math.Ceiling(totalSemesterWorkingDays * 0.75);
+        sessionsNeededToPass = targetMinimumDays - totalPresentDays;
+
+        if (sessionsNeededToPass < 0) sessionsNeededToPass = 0;
+    }
+
+    int GetWorkingDays(DateTime start, DateTime end)
+    {
+        int count = 0;
+        for (DateTime date = start; date <= end; date = date.AddDays(1))
+        {
+            if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday && !holidayDates.Contains(date.Date))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // --- NEW: NOTIFICATION DISMISSAL ENGINE ---
+    void DismissNotification(AppNotification msg)
+    {
+        announcements.Remove(msg);     // Removes from local UI instantly
+        Db.Notifications.Remove(msg);  // Removes from backend database permanently
+        Db.SaveChanges();
+    }
+
+    async Task PunchIn()
+    {
+        isProcessing = true;
+        statusMessage = "Connecting to GPS Satellites...";
+        StateHasChanged(); // Force UI to show loading text
+
+        try
+        {
+            var locResult = await MyLocService.GetCurrentLocationAsync();
+
+            if (locResult.IsSuccess)
+            {
+                double targetLat = GeofenceConfig.Latitude;
+                double targetLon = GeofenceConfig.Longitude;
+                int targetRadius = GeofenceConfig.Radius;
+
+                double distanceToCampus = CalculateHaversineDistance(locResult.Latitude, locResult.Longitude, targetLat, targetLon);
+
+                if (distanceToCampus <= targetRadius)
+                {
+                    statusMessage = $"Entry Verified ({Math.Round(distanceToCampus, 1)}m offset)";
+                    var newRecord = new AttendanceRecord
+                    {
+                        StudentId = GlobalState.CurrentUser!.UniqueId,
+                        Timestamp = DateTime.Now,
+                        Status = "Present",
+                        MarkedBy = "Device Hardware"
+                    };
+                    Db.AttendanceRecords.Add(newRecord);
+                    await Db.SaveChangesAsync();
+
+                    LoadAcademicData(); // Fetches the new record
+                    CalculateAnalytics();
+                }
+                else
+                {
+                    statusMessage = $"Blocked: You are {Math.Round(distanceToCampus, 1)}m away.";
+                    await JS.InvokeVoidAsync("alert", $"Geofence Boundary Blocked. Please move within {targetRadius}m of the campus.");
+                }
+            }
+            else
+            {
+                statusMessage = "GPS Timeout: Please enable Location Services.";
+                await JS.InvokeVoidAsync("alert", "Error: Turn on your device GPS to verify attendance.");
+            }
+        }
+        catch (Exception)
+        {
+            statusMessage = "Error connecting to location.";
+        }
+
+        isProcessing = false;
+        StateHasChanged(); // Force UI update to instantly swap to Punch Out Button
+    }
+
+    async Task PunchOut()
+    {
+        if (todayRecord == null) return;
+
+        isProcessing = true;
+        statusMessage = "Verifying Exit Coordinates...";
+        StateHasChanged(); // Force UI to show loading text
+
+        try
+        {
+            var locResult = await MyLocService.GetCurrentLocationAsync();
+
+            if (locResult.IsSuccess)
+            {
+                todayRecord.OutTime = DateTime.Now;
+                Db.AttendanceRecords.Update(todayRecord);
+                await Db.SaveChangesAsync();
+
+                statusMessage = "Exit Verified.";
+                LoadAcademicData(); // Fetches updated record
+            }
+            else
+            {
+                statusMessage = "GPS Timeout.";
+                await JS.InvokeVoidAsync("alert", "Error: Turn on your device GPS to punch out.");
+            }
+        }
+        catch (Exception)
+        {
+            statusMessage = "Error connecting to location.";
+        }
+
+        isProcessing = false;
+        StateHasChanged(); // Force UI update to show final receipt
+    }
+
+    private double CalculateHaversineDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        var R = 6371e3;
+        var phi1 = lat1 * Math.PI / 180;
+        var phi2 = lat2 * Math.PI / 180;
+        var deltaPhi = (lat2 - lat1) * Math.PI / 180;
+        var deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+        var a = Math.Sin(deltaPhi / 2) * Math.Sin(deltaPhi / 2) + Math.Cos(phi1) * Math.Cos(phi2) * Math.Sin(deltaLambda / 2) * Math.Sin(deltaLambda / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    void SignOut()
+    {
+        GlobalState.Logout();
+        NavManager.NavigateTo("/");
+    }
+}

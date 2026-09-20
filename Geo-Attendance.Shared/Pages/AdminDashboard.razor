@@ -1,0 +1,624 @@
+﻿@page "/admindashboard"
+@attribute [Authorize(Roles = "Admin")]
+@using Geo_Attendance.Shared
+@using Geo_Attendance.Shared.Data
+@inject NavigationManager NavManager
+@inject AppDbContext Db
+
+<style>
+    /* Scoped Admin Layout Styles */
+    .sidebar {
+        width: 280px;
+        background: var(--bg-surface);
+        backdrop-filter: blur(var(--glass-blur));
+        border-right: 1px solid var(--glass-border);
+        padding: var(--space-xl) var(--space-lg);
+        display: flex;
+        flex-direction: column;
+        z-index: 10;
+    }
+
+    .nav-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+        font-size: 15px;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+        transition: 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+    }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .nav-btn.active {
+            background: var(--admin-bg);
+            color: var(--admin);
+            border: 1px solid var(--admin-border);
+        }
+
+    .role-selection-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-lg);
+        margin-bottom: var(--space-lg);
+    }
+
+    .role-card {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-xl) var(--space-lg);
+        text-align: center;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+        .role-card:hover {
+            transform: translateY(-5px);
+            background: var(--admin-bg);
+            border-color: var(--admin);
+        }
+
+        .role-card.selected {
+            background: var(--admin-bg);
+            border-color: var(--admin);
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+        }
+
+        .role-card svg {
+            width: 40px;
+            height: 40px;
+            color: var(--admin);
+            margin-bottom: 15px;
+        }
+
+    .accordion-group {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: var(--space-lg);
+    }
+
+    .accordion-item {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .accordion-header {
+        padding: 18px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.02);
+        transition: background 0.3s ease;
+    }
+
+        .accordion-header:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+    .accordion-count {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        margin-left: 10px;
+        color: var(--text-primary);
+    }
+
+    .chevron-icon {
+        width: 20px;
+        height: 20px;
+        transition: transform 0.4s ease;
+        color: var(--text-secondary);
+    }
+
+        .chevron-icon.rotated {
+            transform: rotate(180deg);
+            color: var(--text-primary);
+        }
+
+    .accordion-content {
+        padding: 0;
+        display: none;
+    }
+
+        .accordion-content.expanded {
+            padding: 0 24px 24px 24px;
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="app-background theme-admin" style="overflow: hidden;">
+    <aside class="sidebar">
+        <div style="display: flex; align-items: center; gap: 12px; color: var(--admin); font-size: 20px; font-weight: 800; margin-bottom: 40px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            System Admin
+        </div>
+
+        <nav style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
+            <button class="nav-btn @(currentTab == "ManageUsers" ? "active" : "")" @onclick="@(() => SetTab("ManageUsers"))">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Manage Database
+            </button>
+            <button class="nav-btn @(currentTab == "AddUser" ? "active" : "")" @onclick="@(() => SetTab("AddUser"))">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add New User
+            </button>
+            <button class="nav-btn @(currentTab == "Settings" ? "active" : "")" @onclick="@(() => SetTab("Settings"))">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                System Settings
+            </button>
+        </nav>
+        <button class="btn btn-danger" @onclick="SignOut">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Sign Out
+        </button>
+    </aside>
+
+    <main style="flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <div>
+                <h2 style="margin: 0; font-size: 28px; font-weight: 700;">Hello, @(GlobalState.CurrentUser?.Name ?? "Admin")</h2>
+                <p style="margin: 5px 0 0 0; color: var(--text-secondary);">Root Access • Manage the GeoAttendance ecosystem</p>
+            </div>
+            <div class="badge badge-admin">SYSTEM LIVE</div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            bool isError = statusMessage.Contains("Failed") || statusMessage.Contains("Error");
+            <div style="background: @(isError ? "var(--danger-bg)" : "var(--success-bg)"); color: @(isError ? "var(--danger)" : "var(--success)"); padding: 15px; border-radius: var(--radius-md); margin-bottom: 20px; font-weight: 600; border: 1px solid @(isError ? "rgba(248, 113, 113, 0.2)" : "rgba(74, 222, 128, 0.2)"); display: flex; align-items: center; gap: 10px;">
+                @if (isError)
+                {
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                }
+                else
+                {
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                }
+                @statusMessage
+            </div>
+        }
+
+        <!-- TAB 1: MANAGE USERS / DATABASE ROSTER -->
+        @if (currentTab == "ManageUsers")
+        {
+            <div class="accordion-group">
+                <!-- Students Accordion -->
+                <div class="accordion-item">
+                    <div class="accordion-header" @onclick="@(() => ToggleAccordion("Students"))">
+                        <div style="display: flex; align-items: center;">
+                            <span style="font-weight: 700; font-size: 16px;">Students</span>
+                            <span class="accordion-count">@studentList.Count</span>
+                        </div>
+                        <svg class="chevron-icon @(expandedSection == "Students" ? "rotated" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+
+                    <div class="accordion-content @(expandedSection == "Students" ? "expanded" : "")">
+                        <div style="padding: 20px 0 0 0; display: flex; flex-direction: column; gap: 10px;">
+
+                            @if (groupedStudents.Count == 0)
+                            {
+                                <div style="text-align: center; color: var(--text-secondary); padding: 20px;">No students enrolled yet.</div>
+                            }
+
+                            <!-- Loop through every dynamic class category -->
+                            @foreach (var classGroup in groupedStudents)
+                            {
+                                var className = classGroup.Key;
+                                var studentsInClass = classGroup.Value;
+
+                                <!-- Nested Class Accordion -->
+                                <div class="accordion-item" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.05);">
+                                    <div class="accordion-header" style="padding: 12px 20px; background: transparent;" @onclick="@(() => ToggleClassAccordion(className))">
+                                        <div style="display: flex; align-items: center;">
+                                            <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">@className</span>
+                                            <span class="accordion-count" style="background: rgba(255,255,255,0.05);">@studentsInClass.Count</span>
+                                        </div>
+                                        <svg class="chevron-icon @(expandedClass == className ? "rotated" : "")" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </div>
+
+                                    <div class="accordion-content @(expandedClass == className ? "expanded" : "")">
+                                        <table class="data-table" style="margin-top: 0; border-top: 1px solid rgba(255,255,255,0.05);">
+                                            <thead>
+                                                <tr>
+                                                    <th>Roll Number</th>
+                                                    <th>Full Name</th>
+                                                    <th>Class / Division</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var s in studentsInClass)
+                                                {
+                                                    <tr>
+                                                        <td style="font-family: monospace; color: var(--text-secondary);">@s.UniqueId</td>
+                                                        <td style="font-weight: 600;">@s.Name</td>
+                                                        <td style="color: var(--text-secondary);">@s.AssignedClass</td>
+                                                        <td>
+                                                            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" @onclick="() => DeleteUser(s.UniqueId)">Delete</button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Faculty Accordion -->
+                <div class="accordion-item">
+                    <div class="accordion-header" @onclick="@(() => ToggleAccordion("Teachers"))">
+                        <div style="display: flex; align-items: center;">
+                            <span style="font-weight: 700; font-size: 16px;">Faculty & Professors</span>
+                            <span class="accordion-count">@teacherList.Count</span>
+                        </div>
+                        <svg class="chevron-icon @(expandedSection == "Teachers" ? "rotated" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="accordion-content @(expandedSection == "Teachers" ? "expanded" : "")">
+                        <table class="data-table" style="margin-top: 15px;">
+                            <thead>
+                                <tr>
+                                    <th>Faculty ID</th>
+                                    <th>Full Name</th>
+                                    <th>Assigned Cohorts</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var t in teacherList)
+                                {
+                                    <tr>
+                                        <td style="font-family: monospace;">@t.UniqueId</td>
+                                        <td style="font-weight: 600;">@t.Name</td>
+                                        <td>@t.AssignedClass</td>
+                                        <td>
+                                            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" @onclick="() => DeleteUser(t.UniqueId)">Delete</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Administrators Accordion -->
+                <div class="accordion-item">
+                    <div class="accordion-header" @onclick="@(() => ToggleAccordion("Admins"))">
+                        <div style="display: flex; align-items: center;">
+                            <span style="font-weight: 700; font-size: 16px;">System Administrators</span>
+                            <span class="accordion-count">@adminList.Count</span>
+                        </div>
+                        <svg class="chevron-icon @(expandedSection == "Admins" ? "rotated" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="accordion-content @(expandedSection == "Admins" ? "expanded" : "")">
+                        <table class="data-table" style="margin-top: 15px;">
+                            <thead>
+                                <tr>
+                                    <th>Admin ID</th>
+                                    <th>Full Name</th>
+                                    <th>Role Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var a in adminList)
+                                {
+                                    <tr>
+                                        <td style="font-family: monospace;">@a.UniqueId</td>
+                                        <td style="font-weight: 600;">@a.Name</td>
+                                        <td><span class="badge badge-admin">Root Administrator</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- TAB 2: ADD NEW USER -->
+        @if (currentTab == "AddUser")
+        {
+            <div class="role-selection-grid">
+                <div class="role-card @(newUserRole == "Student" ? "selected" : "")" @onclick="@(() => SetNewUserRole("Student"))">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                    <div style="font-weight: 700; font-size: 16px;">Student</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">Enroll candidate into an academic cohort</div>
+                </div>
+
+                <div class="role-card @(newUserRole == "Teacher" ? "selected" : "")" @onclick="@(() => SetNewUserRole("Teacher"))">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                    <div style="font-weight: 700; font-size: 16px;">Faculty</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">Assign class teacher & broadcast privileges</div>
+                </div>
+
+                <div class="role-card @(newUserRole == "Admin" ? "selected" : "")" @onclick="@(() => SetNewUserRole("Admin"))">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <div style="font-weight: 700; font-size: 16px;">Administrator</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">Grant geofence & database credentials</div>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="flex: 1;">
+                <h3 style="margin: 0 0 20px 0; font-size: 18px; color: var(--admin);">Create @newUserRole Account</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+                            @(newUserRole == "Student" ? "Roll Number / Student ID" : newUserRole == "Teacher" ? "Faculty Employee ID" : "Administrator ID")
+                        </label>
+                        <input class="glass-input" @bind="newUserId" placeholder="e.g. @(newUserRole == "Student" ? "TY-01" : newUserRole == "Teacher" ? "FAC-101" : "ADM-01")" />
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Full Legal Name</label>
+                        <input class="glass-input" @bind="newUserName" placeholder="e.g. John Doe" />
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Account Password</label>
+                        <input class="glass-input" type="password" @bind="newUserPassword" placeholder="••••••••" />
+                    </div>
+
+                    @if (newUserRole != "Admin")
+                    {
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+                                @(newUserRole == "Student" ? "Assigned Class / Division" : "Class In-Charge (Comma-separated for multiples)")
+                            </label>
+                            <input class="glass-input" @bind="newUserClass" placeholder="e.g. TYBSc CS | Div A" />
+                        </div>
+                    }
+                </div>
+
+                <button class="btn btn-primary" style="background: var(--admin); width: 100%;" @onclick="CreateUser">
+                    Register User Into System
+                </button>
+            </div>
+        }
+
+        <!-- TAB 3: SYSTEM SETTINGS & ACADEMIC CALENDAR -->
+        @if (currentTab == "Settings")
+        {
+            <div class="glass-panel" style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 25px 0; font-size: 20px;">Academic Year Configuration</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Semester Start Date</label>
+                        <input class="glass-input" type="date" @bind="academicStartDate" />
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Semester End Date</label>
+                        <input class="glass-input" type="date" @bind="academicEndDate" />
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Institutional Holidays (Comma separated YYYY-MM-DD)</label>
+                    <textarea class="glass-input" style="height: 60px; resize: vertical;" @bind="holidayListString" placeholder="e.g., 2026-08-15, 2026-09-07"></textarea>
+                </div>
+
+                <button class="btn btn-primary" style="background: var(--admin);" @onclick="SaveAcademicSettings">Apply Academic Calendar</button>
+            </div>
+
+            <div class="glass-panel" style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 25px 0; font-size: 20px;">Geofence Configurator</h3>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Target Latitude</label>
+                            <input class="glass-input" type="number" step="any" @bind="adminGeofenceLat" />
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Target Longitude</label>
+                            <input class="glass-input" type="number" step="any" @bind="adminGeofenceLon" />
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+                            <span>Allowed Check-In Radius (Meters)</span>
+                            <span style="color: var(--admin);">@adminGeofenceRadius m</span>
+                        </label>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <input type="range" min="10" max="1000" step="5" @bind="adminGeofenceRadius" @bind:event="oninput" style="flex: 1; accent-color: var(--admin);" />
+                            <input class="glass-input" type="number" @bind="adminGeofenceRadius" style="width: 100px;" />
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="background: var(--admin);" @onclick="SaveGeofenceSettings">Apply Geofence Settings</button>
+                </div>
+            </div>
+        }
+    </main>
+</div>
+
+@code {
+    string currentTab = "ManageUsers";
+    string statusMessage = "";
+    string expandedSection = "Students";
+    string expandedClass = ""; // Tracks which inner class dropdown is open
+
+    // Manage Users State
+    List<AppUser> studentList = new List<AppUser>();
+    List<AppUser> teacherList = new List<AppUser>();
+    List<AppUser> adminList = new List<AppUser>();
+
+    // This will hold our dynamically grouped students
+    Dictionary<string, List<AppUser>> groupedStudents = new Dictionary<string, List<AppUser>>();
+
+    // Add User Form State
+    string newUserRole = "Student";
+    string newUserId = "";
+    string newUserName = "";
+    string newUserPassword = "";
+    string newUserClass = "";
+
+    // Academic State (Loaded from device secure storage)
+    DateTime academicStartDate = AcademicConfig.StartDate;
+    DateTime academicEndDate = AcademicConfig.EndDate;
+    string holidayListString = AcademicConfig.Holidays;
+
+    int adminGeofenceRadius = GeofenceConfig.Radius;
+    double adminGeofenceLat = GeofenceConfig.Latitude;
+    double adminGeofenceLon = GeofenceConfig.Longitude;
+
+    protected override void OnInitialized()
+    {
+        if (GlobalState.CurrentUser == null || GlobalState.CurrentUser.Role != "Admin")
+        {
+            NavManager.NavigateTo("/");
+            return;
+        }
+
+        LoadUsers();
+    }
+
+    void LoadUsers()
+    {
+        var all = Db.Users.ToList();
+        studentList = all.Where(u => u.Role == "Student").OrderBy(u => u.UniqueId).ToList();
+        teacherList = all.Where(u => u.Role == "Teacher").OrderBy(u => u.UniqueId).ToList();
+        adminList = all.Where(u => u.Role == "Admin").OrderBy(u => u.UniqueId).ToList();
+
+        // Dynamically group students by their base class name
+        groupedStudents = studentList
+            .GroupBy(s => GetGroupName(s.AssignedClass))
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    // Helper to extract just the class name if it contains extra info (like Roll numbers)
+    string GetGroupName(string fullAssignment)
+    {
+        if (string.IsNullOrWhiteSpace(fullAssignment)) return "Unassigned";
+        if (fullAssignment.Contains("|")) return fullAssignment.Split('|')[0].Trim();
+        return fullAssignment.Trim();
+    }
+
+    // Toggles the nested class dropdowns
+    void ToggleClassAccordion(string className)
+    {
+        if (expandedClass == className)
+            expandedClass = "";
+        else
+            expandedClass = className;
+    }
+
+    void SetTab(string tabName)
+    {
+        currentTab = tabName;
+        statusMessage = "";
+        if (tabName == "ManageUsers") LoadUsers();
+    }
+
+    void ToggleAccordion(string section)
+    {
+        if (expandedSection == section)
+            expandedSection = "";
+        else
+            expandedSection = section;
+    }
+
+    void SetNewUserRole(string role)
+    {
+        newUserRole = role;
+    }
+
+    void CreateUser()
+    {
+        if (string.IsNullOrWhiteSpace(newUserId) || string.IsNullOrWhiteSpace(newUserName) || string.IsNullOrWhiteSpace(newUserPassword))
+        {
+            statusMessage = "Error: Please fill in all mandatory fields.";
+            return;
+        }
+
+        if (Db.Users.Any(u => u.UniqueId == newUserId.Trim()))
+        {
+            statusMessage = "Error: A user with this ID already exists.";
+            return;
+        }
+
+        var user = new AppUser
+        {
+            UniqueId = newUserId.Trim(),
+            Name = newUserName.Trim(),
+            Password = newUserPassword.Trim(),
+            Role = newUserRole,
+            AssignedClass = newUserRole == "Admin" ? "System" : (string.IsNullOrWhiteSpace(newUserClass) ? "General" : newUserClass.Trim())
+        };
+
+        Db.Users.Add(user);
+        Db.SaveChanges();
+
+        statusMessage = $"Success: {newUserRole} '{user.Name}' successfully registered.";
+
+        // Reset Form
+        newUserId = "";
+        newUserName = "";
+        newUserPassword = "";
+        newUserClass = "";
+
+        LoadUsers();
+    }
+
+    void DeleteUser(string userId)
+    {
+        var user = Db.Users.FirstOrDefault(u => u.UniqueId == userId);
+        if (user != null)
+        {
+            Db.Users.Remove(user);
+            Db.SaveChanges();
+            LoadUsers();
+            statusMessage = $"User {userId} removed from database.";
+        }
+    }
+
+    void SaveAcademicSettings()
+    {
+        AcademicConfig.StartDate = academicStartDate;
+        AcademicConfig.EndDate = academicEndDate;
+        AcademicConfig.Holidays = holidayListString;
+        statusMessage = "Academic calendar configuration updated successfully.";
+    }
+
+    void SaveGeofenceSettings()
+    {
+        GeofenceConfig.Radius = adminGeofenceRadius;
+        GeofenceConfig.Latitude = adminGeofenceLat;
+        GeofenceConfig.Longitude = adminGeofenceLon;
+        statusMessage = $"System Geofence locked at Radius {adminGeofenceRadius}m.";
+    }
+
+    void SignOut() { GlobalState.Logout(); NavManager.NavigateTo("/"); }
+}

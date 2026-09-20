@@ -1,0 +1,408 @@
+﻿@page "/"
+
+@using Microsoft.AspNetCore.Components.Authorization
+
+@using Geo_Attendance.Shared.Services
+
+@inject AuthenticationStateProvider AuthStateProvider
+
+@using Geo_Attendance.Shared
+
+@using Geo_Attendance.Shared.Data
+
+@inject NavigationManager NavManager
+
+@inject AppDbContext Db
+
+
+
+<!-- Professional Background Container -->
+<!-- Professional Background Container -->
+
+<div class="professional-login-bg">
+
+    <!-- Professional Top Navigation Bar & Tagline -->
+    <!-- Professional Top Navigation Bar & Tagline -->
+    <!-- Professional Top Navigation Bar & Tagline -->
+    <!-- Professional Top Navigation Bar & Tagline -->
+
+    <nav style="position: absolute; top: 0; left: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(15,23,42,0.9), transparent); z-index: 50;">
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+
+            <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 8px; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);">
+
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+
+            </div>
+
+            <div>
+
+                <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: white; letter-spacing: 1px;">GEO<span style="color: var(--primary);">ATTENDANCE</span></h1>
+
+                <p style="margin: 0; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Precision Campus Tracking</p>
+
+            </div>
+
+        </div>
+
+        <div style="display: flex; gap: 30px;">
+
+            <a href="#about" style="color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-secondary)'">About Platform</a>
+
+            <a href="#" style="color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-secondary)'">Support</a>
+
+        </div>
+
+    </nav>
+
+
+
+    <!-- Top App Information & Branding Header -->
+
+    <div class="brand-header">
+
+        <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); padding: 6px 14px; border-radius: 20px; margin-bottom: 15px;">
+
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 8px var(--primary);"></div>
+
+            <span style="font-size: 12px; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;">Enterprise Campus Geofencing</span>
+
+        </div>
+
+        <h1 style="color: var(--text-primary); font-size: 22px; font-weight: 700; margin: 0;">Dnyandeep College</h1>
+
+        <p style="color: var(--text-secondary); font-size: 13px; margin: 4px 0 0 0;">Next-Gen Secure Attendance Ecosystem</p>
+
+    </div>
+
+
+
+    <!-- Central Authentication Card -->
+
+    <div class="glass-panel" style="max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+
+
+
+        <!-- Logo Container -->
+
+        <div style="display: inline-flex; justify-content: center; align-items: center; width: 56px; height: 56px; background: var(--primary-bg); border: 1px solid var(--primary-border); border-radius: var(--radius-lg); margin-bottom: var(--space-md); color: var(--primary);">
+
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+
+                <circle cx="12" cy="10" r="3"></circle>
+
+            </svg>
+
+        </div>
+
+
+
+        <h2 style="margin: 0 0 4px 0; font-size: 24px; font-weight: 800;">GeoAttendance Portal</h2>
+
+        <p style="color: var(--text-secondary); margin: 0 0 var(--space-lg) 0; font-size: 14px;">Select your role and enter credentials</p>
+
+
+
+        <!-- Role Selection Tabs -->
+
+        <div style="display: flex; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); margin-bottom: var(--space-lg); padding: 4px;">
+
+            <button type="button" class="btn @(selectedRole == "Student" ? "btn-primary" : "btn-secondary")" style="flex: 1; padding: 10px 0; border: none; font-size: 13px;" @onclick="@(() => selectedRole = "Student")">Student</button>
+
+            <button type="button" class="btn @(selectedRole == "Teacher" ? "btn-primary" : "btn-secondary")" style="flex: 1; padding: 10px 0; border: none; font-size: 13px;" @onclick="@(() => selectedRole = "Teacher")">Teacher</button>
+
+            <button type="button" class="btn @(selectedRole == "Admin" ? "btn-primary" : "btn-secondary")" style="flex: 1; padding: 10px 0; border: none; font-size: 13px;" @onclick="@(() => selectedRole = "Admin")">Admin</button>
+
+        </div>
+
+
+
+        <!-- Form Inputs using global .glass-input -->
+
+        <div style="text-align: left; margin-bottom: var(--space-md);">
+
+            <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Unique ID</label>
+
+            <div style="position: relative;">
+
+                <input type="text" class="glass-input" style="padding-left: 42px;" @bind="userId" @bind:event="oninput" placeholder="e.g. S-22" autocomplete="off" spellcheck="false" disabled="@isLoggingIn" />
+
+                <svg style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+
+            </div>
+
+        </div>
+
+
+
+        <div style="text-align: left; margin-bottom: var(--space-lg);">
+
+            <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Secure PIN</label>
+
+            <div style="position: relative;">
+
+                <input type="password" class="glass-input" style="padding-left: 42px;" @bind="userPassword" @bind:event="oninput" placeholder="••••" disabled="@isLoggingIn" />
+
+                <svg style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Global Action Button with Loading State -->
+
+        <button class="btn btn-primary" style="width: 100%; margin-top: 5px; padding: 12px; opacity: @(isLoggingIn ? "0.7" : "1");" @onclick="CheckLogin" disabled="@isLoggingIn">
+
+            @(isLoggingIn ? "Authenticating..." : "Secure Login")
+
+        </button>
+
+
+
+        <!-- Error Message referencing global token colors -->
+        @if (!string.IsNullOrEmpty(loginMessage))
+
+        {
+
+            <div style="background: var(--danger-bg); border: 1px solid rgba(248, 113, 113, 0.2); color: var(--danger); padding: 12px; border-radius: var(--radius-md); margin-top: var(--space-md); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+
+                @loginMessage
+
+            </div>
+
+        }
+
+    </div>
+
+
+
+    <!-- Professional About Section -->
+
+    <div id="about" style="max-width: 650px; width: 100%; text-align: center; margin: 60px auto 40px auto; padding: 40px 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+
+        <h3 style="color: var(--primary); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 10px 0;">About The Platform</h3>
+
+        <h2 style="color: white; font-size: 24px; font-weight: 700; margin: 0 0 15px 0;">Secure. Automated. Precise.</h2>
+
+        <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0 auto 30px auto;">
+
+            GeoAttendance is an enterprise-grade location-based ecosystem built specifically for Dnyandeep College. By leveraging advanced Haversine formula geofencing and hardware-backed cryptographic security, we eliminate proxy attendance and ensure real-time, tamper-proof academic tracking.
+
+        </p>
+
+        <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 20px;">
+
+            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.3); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+
+                <svg width="16" height="16" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> GPS Integrity
+
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.3); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+
+                <svg width="16" height="16" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Identity Verified
+
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.3); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+
+                <svg width="16" height="16" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> AI Analytics
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Professional Footer & Trademark -->
+
+    <div class="app-footer">
+
+        <p style="margin: 0;">&copy; 2026 GeoAttendance Systems. All rights reserved.</p>
+
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); opacity: 0.8;">Hardware-Enforced Cryptographic Geofencing &bull; v2.5 Enterprise</p>
+
+    </div>
+
+
+
+</div>
+
+
+
+@code {
+
+    string selectedRole = "Student"; // Default role tab
+
+    string userId = "";
+
+    string userPassword = "";
+
+    string loginMessage = "";
+
+    bool isLoggingIn = false; // Prevents double-clicking the button
+
+
+
+    async Task CheckLogin()
+
+    {
+
+        // 1. Prevent multiple clicks while processing
+
+        if (isLoggingIn) return;
+
+
+
+        loginMessage = "";
+
+        isLoggingIn = true;
+
+        StateHasChanged();
+
+
+
+        // 2. Input Sanitization (Removes accidental spaces before or after the text)
+
+        userId = userId?.Trim() ?? "";
+
+        userPassword = userPassword?.Trim() ?? "";
+
+
+
+        // 3. Strict Validation Checks
+
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(userPassword))
+
+        {
+
+            loginMessage = "Please enter both your Unique ID and Secure PIN.";
+
+            isLoggingIn = false;
+
+            return;
+
+        }
+
+
+
+        if (userId.Length < 3)
+
+        {
+
+            loginMessage = "Invalid format. Unique ID must be at least 3 characters.";
+
+            isLoggingIn = false;
+
+            return;
+
+        }
+
+
+
+        // Optional: Small delay to show the "Authenticating..." UI state smoothly
+
+        await Task.Delay(400);
+
+
+
+        // --- THE TYBSC CS ROSTER SEED ---
+
+        // If Soham's account doesn't exist yet, build the entire real roster
+
+        // Only add these users if the database is completely empty
+        if (!Db.Users.Any())
+        {
+            // 1. System Admin
+            Db.Users.Add(new AppUser { UniqueId = "ADMIN-01", Password = "123", Name = "System Administrator", Role = "Admin", AssignedClass = "System Control" });
+
+            // 2. Faculty
+            Db.Users.Add(new AppUser { UniqueId = "t-priya", Password = "123", Name = "Priya", Role = "Teacher", AssignedClass = "TYBSc CS" });
+            Db.Users.Add(new AppUser { UniqueId = "T-Aishwarya", Password = "123", Name = "Aishwarya", Role = "Teacher", AssignedClass = "TYBSc IT" });
+
+            // 3. Students
+            Db.Users.Add(new AppUser { UniqueId = "S-22", Password = "123", Name = "Soham Sangram Pujari", Role = "Student", AssignedClass = "TYBSc CS | Roll: 22" });
+            Db.Users.Add(new AppUser { UniqueId = "S-06", Password = "123", Name = "Devang Sachin Ghosalkar", Role = "Student", AssignedClass = "TYBSc CS | Roll: 06" });
+            Db.Users.Add(new AppUser { UniqueId = "S-24", Password = "123", Name = "Ashish Sandip Salunkhe", Role = "Student", AssignedClass = "TYBSc CS | Roll: 24" });
+
+            await Db.SaveChangesAsync();
+        }
+
+
+
+        // Query the SQLite database to find a matching user who ALSO has the selected role
+
+        var foundUser = Db.Users.FirstOrDefault(u => u.UniqueId.ToLower() == userId.ToLower() && u.Password == userPassword && u.Role == selectedRole);
+
+
+
+        if (foundUser != null)
+
+        {
+
+            // 1. Keep the legacy GlobalState for backwards compatibility with your DB queries for now
+
+            GlobalState.CurrentUser = foundUser;
+
+
+
+            // 2. Encrypt the session securely into the native device hardware!
+
+            var customAuthStateProvider = (CustomAuthStateProvider)AuthStateProvider;
+
+            await customAuthStateProvider.LogInAsync(foundUser);
+
+
+
+            // 3. Securely route based on role
+
+            if (foundUser.Role == "Student")
+
+            {
+
+                NavManager.NavigateTo("/studentdashboard");
+
+            }
+
+            else if (foundUser.Role == "Teacher")
+
+            {
+
+                NavManager.NavigateTo("/teacherdashboard");
+
+            }
+
+            else if (foundUser.Role == "Admin")
+
+            {
+
+                NavManager.NavigateTo("/admindashboard");
+
+            }
+
+        }
+
+        else
+
+        {
+
+            // Improved dynamic error message
+
+            loginMessage = $"Authentication failed. No {selectedRole} found with these credentials.";
+
+            isLoggingIn = false;
+
+        }
+
+    }
+
+}
