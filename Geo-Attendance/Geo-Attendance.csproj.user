@@ -9,6 +9,9 @@
     <None Update="App.xaml">
       <SubType>Designer</SubType>
     </None>
+    <None Update="AttendanceDataSet.xsd">
+      <SubType>Designer</SubType>
+    </None>
     <None Update="MainPage.xaml">
       <SubType>Designer</SubType>
     </None>

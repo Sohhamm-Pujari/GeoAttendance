@@ -80,4 +80,19 @@
     <ProjectReference Include="..\Geo-Attendance.Shared\Geo-Attendance.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="AttendanceDataSet.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>AttendanceDataSet.xsd</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="AttendanceDataSet.xsd">
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>AttendanceDataSet.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
 </Project>
